@@ -51,16 +51,16 @@ export function authorizeDocument(requiredAction: RequiredAction = 'READ') {
       const userPermission = doc.permissions?.find((p: any) => p.userId === user.id);
 
       if (requiredAction === 'READ') {
-        if (userPermission && (userPermission.accessLevel === AccessLevel.READ || userPermission.accessLevel === AccessLevel.WRITE)) {
+        if (userPermission && (userPermission.accessLevel === AccessLevel.READ || userPermission.accessLevel === AccessLevel.EDIT)) {
           isAuthorized = true;
         } else {
           denialReason = `User ${user.email} (${user.role}) lacks READ permission on document ${documentId}`;
         }
-      } else if (requiredAction === 'WRITE') {
-        if (userPermission && userPermission.accessLevel === AccessLevel.WRITE) {
+      } else if (requiredAction === 'WRITE' as any || (requiredAction as any) === 'EDIT') {
+        if (userPermission && userPermission.accessLevel === AccessLevel.EDIT) {
           isAuthorized = true;
         } else {
-          denialReason = `User ${user.email} lacks WRITE permission on document ${documentId}`;
+          denialReason = `User ${user.email} lacks EDIT permission on document ${documentId}`;
         }
       } else if (requiredAction === 'DELETE' || requiredAction === 'SHARE') {
         denialReason = `Only the document owner or an ADMIN may execute action '${requiredAction}' on document ${documentId}`;
@@ -124,4 +124,12 @@ export function requireRoles(...allowedRoles: Role[]) {
 
     next();
   };
+}
+
+/**
+ * Role-Based Access Control (RBAC) Middleware supporting requireRole(['ADMIN']) or requireRole(Role.ADMIN).
+ */
+export function requireRole(allowedRoles: Role | Role[] | string | string[]) {
+  const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+  return requireRoles(...(roles as Role[]));
 }

@@ -228,7 +228,7 @@ describe('Phase 2: MIME Magic-Byte Validation & Granular Document RBAC', () => {
       });
       expect(auditService.logSecurityEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          action: 'DOCUMENT_EDIT_DENIED',
+          action: 'EDIT',
           status: AuditStatus.DENIED,
           userId: 'reader-1',
           documentId: mockDocument.id,
@@ -271,7 +271,7 @@ describe('Phase 2: MIME Magic-Byte Validation & Granular Document RBAC', () => {
       });
       expect(auditService.logSecurityEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          action: 'DOCUMENT_DELETE_DENIED',
+          action: 'DELETE',
           status: AuditStatus.DENIED,
           userId: 'editor-1',
           documentId: mockDocument.id,

@@ -5,6 +5,7 @@ import cors from 'cors';
 import authRoutes from './routes/auth.routes';
 import documentRoutes from './routes/document.routes';
 import auditRoutes from './routes/audit.routes';
+import adminRoutes from './routes/admin.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp(): Application {
@@ -46,6 +47,9 @@ export function createApp(): Application {
 
   app.use('/api/audit', auditRoutes);
   app.use('/api/v1/audit', auditRoutes);
+
+  app.use('/api/admin', adminRoutes);
+  app.use('/api/v1/admin', adminRoutes);
 
   // Global Error Handler
   app.use(errorHandler);

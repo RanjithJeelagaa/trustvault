@@ -113,18 +113,29 @@ An adversary or malicious insider gains database access and modifies, deletes, o
 3. **Repudiation:** Users denying that their account performed a sensitive download or deletion.
 
 ### TrustVault Defensive Architecture
-1. **Cryptographic Hash Chaining (Blockchain-Style Integrity):**
-   - Each audit log entry includes:
-     - `previousHash`: The `entryHash` of the immediately preceding audit log record (or a fixed genesis hash for the initial entry).
-     - `entryHash`: The SHA-256 HMAC or hash computed over all entry attributes:
-       ```
-       entryHash = SHA256(previousHash + action + status + userId + documentId + timestamp + reason)
-       ```
-2. **Strict Append-Only Design:**
-   - The application provides no update or delete endpoints for `AuditLog`.
-   - Read-only endpoints for administrators verify chain integrity on demand.
-3. **Audit Chain Verification API:**
-   - Administrators can run `GET /api/v1/audit/verify` to validate the entire hash chain from the genesis block forward. Any modified, inserted, or omitted record breaks the chain and flags immediate tampering.
+
+#### 1. Cryptographic Hash-Chaining (Blockchain-Style Integrity)
+- Each audit log entry includes:
+  - `previousHash`: The `currentHash` of the immediately preceding audit log record (or a fixed 64-zero genesis hash `0000000000000000000000000000000000000000000000000000000000000000` for the initial entry).
+  - `currentHash`: The SHA-256 digest computed deterministically over all entry attributes:
+    ```
+    currentHash = SHA256(`${previousHash}:${timestamp}:${userId}:${action}:${documentId}:${status}`)
+    ```
+
+#### 2. Mitigations Against Audit Log Spoofing (Fabrication & Modification)
+- **Mathematical Immutability:** Because each block's seal incorporates `previousHash` along with its contextual data (`timestamp`, `userId`, `action`, `documentId`, `status`), an attacker cannot inject a fabricated log entry or modify an existing entry (e.g. flipping `DENIED` to `SUCCESS` or changing timestamps) without invalidating both its own `currentHash` and the `previousHash` of all subsequent blocks.
+- **Server-Side Controlled Sealing:** Audit records can only be created via the internal `auditLogger.ts` utility during server request handling. No client-facing API exists to supply or alter hash fields.
+- **Immediate Detection:** Any modified attribute causes `verifyAuditChain()` to flag an immediate `isValid: false` verdict and expose the exact corrupted row ID (`corruptedAtId`).
+
+#### 3. Mitigations Against Audit Log Truncation & Deletion
+- **Intermediate Record Deletion:** If an attacker deletes a record in the middle of the log, the subsequent record's `previousHash` will no longer match the `currentHash` of the record that now precedes it. The chain break is instantly flagged by `verifyAuditChain()`.
+- **Genesis & Head Truncation:** If the initial records are deleted, the new first record's `previousHash` will point to a non-existent parent hash rather than the expected `GENESIS_HASH` (64 zeroes), instantly tripping validation.
+- **Tail Truncation Defense:** Complete chain verification checks the integrity of all stored rows. External monitoring and write-ahead replication ensure that log counts remain monotonically increasing.
+
+#### 4. Admin Audit Viewer & Chain Verification API
+- Protected under `authenticate` and `requireRole(['ADMIN'])`:
+  - `GET /api/admin/audit-logs`: Secure, paginated log viewer with search filters (`userId`, `documentId`, `status`, `startDate`, `endDate`).
+  - `GET /api/admin/audit-logs/verify`: Triggers `verifyAuditChain()` and returns a definitive cryptographic verdict (`VERIFIED` or `TAMPER_DETECTED`).
 
 ---
 

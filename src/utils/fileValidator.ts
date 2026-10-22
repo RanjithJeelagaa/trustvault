@@ -154,7 +154,7 @@ export async function validateFileMagicBytes(buffer: Buffer): Promise<FileValida
       // Explicitly reject detected executables, archives, scripts, or non-whitelisted types
       return {
         isValid: false,
-        error: `MIME type rejected: detected '${mime}'. Allowed types are: ${ALLOWED_MIME_TYPES.join(', ')}`,
+        error: `Invalid file format: magic byte mismatch. Detected '${mime}'. Allowed types are: ${ALLOWED_MIME_TYPES.join(', ')}`,
       };
     }
   } catch (err: any) {
@@ -168,6 +168,6 @@ export async function validateFileMagicBytes(buffer: Buffer): Promise<FileValida
 
   return {
     isValid: false,
-    error: `Unrecognized or invalid file format. Magic byte inspection failed. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`,
+    error: `Invalid file format: magic byte mismatch. Magic byte inspection failed. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`,
   };
 }

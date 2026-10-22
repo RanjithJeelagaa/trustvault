@@ -19,7 +19,7 @@ enum AccessLevel {
 }
 
 enum AuditStatus {
-  ALLOWED
+  SUCCESS
   DENIED
 }
 
@@ -100,7 +100,8 @@ model AuditLog {
   userAgent    String?
   reason       String?
   previousHash String      // Tamper-evident cryptographic blockchain-style chaining
-  entryHash    String      // SHA-256 seal of current entry + previousHash
+  currentHash  String      @default("") // Cryptographic SHA-256 hash chaining
+  entryHash    String?     // Optional backward-compatibility field
   timestamp    DateTime    @default(now())
 
   @@index([timestamp])

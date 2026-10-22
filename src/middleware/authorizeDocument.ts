@@ -57,16 +57,18 @@ export function authorizeDocument(requiredLevel: RequiredPermissionLevel) {
     // 4. Check explicit permissions table for (userId, documentId)
     else {
       // Look up permission for this user and document
-      const explicitGrant = document.permissions.find(
-        (p) => p.userId === user.id
-      ) || (await prisma.permission.findUnique({
-        where: {
-          documentId_userId: {
-            documentId: document.id,
-            userId: user.id,
-          },
-        },
-      }));
+      const explicitGrant = (Array.isArray(document.permissions))
+        ? document.permissions.find((p: any) => p.userId === user.id)
+        : (prisma.permission
+            ? await prisma.permission.findUnique({
+                where: {
+                  documentId_userId: {
+                    documentId: document.id,
+                    userId: user.id,
+                  },
+                },
+              })
+            : null);
 
       if (requiredLevel === 'READ') {
         // EDIT implies READ
@@ -91,9 +93,9 @@ export function authorizeDocument(requiredLevel: RequiredPermissionLevel) {
 
     // 5. Handle Authorization Failure
     if (!isAuthorized) {
-      // Emit DENIED audit log entry
+      // Emit DENIED audit log entry with action type attempted (READ/EDIT/DELETE)
       await auditService.logSecurityEvent({
-        action: `DOCUMENT_${requiredLevel}_DENIED`,
+        action: requiredLevel,
         status: AuditStatus.DENIED,
         userId: user.id,
         documentId: document.id,

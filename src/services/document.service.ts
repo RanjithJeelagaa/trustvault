@@ -101,7 +101,7 @@ export class DocumentService {
     targetUserId: string;
     accessLevel: AccessLevel;
   }) {
-    return await prisma.documentPermission.upsert({
+    return await prisma.permission.upsert({
       where: {
         documentId_userId: {
           documentId: params.documentId,

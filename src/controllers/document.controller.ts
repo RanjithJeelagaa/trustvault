@@ -40,7 +40,7 @@ export class DocumentController {
 
     await auditService.logSecurityEvent({
       action: 'DOCUMENT_UPLOAD',
-      status: AuditStatus.ALLOWED,
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       documentId: docMeta.id,
       ipAddress: req.ip || req.socket.remoteAddress,
@@ -78,7 +78,7 @@ export class DocumentController {
 
     await auditService.logSecurityEvent({
       action: 'DOCUMENT_METADATA_READ',
-      status: AuditStatus.ALLOWED,
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       documentId: doc.id,
       ipAddress: req.ip || req.socket.remoteAddress,
@@ -102,7 +102,7 @@ export class DocumentController {
 
     await auditService.logSecurityEvent({
       action: 'DOCUMENT_DOWNLOAD',
-      status: AuditStatus.ALLOWED,
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       documentId: doc.id,
       ipAddress: req.ip || req.socket.remoteAddress,
@@ -151,7 +151,7 @@ export class DocumentController {
 
     await auditService.logSecurityEvent({
       action: 'DOCUMENT_SHARED',
-      status: AuditStatus.ALLOWED,
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       documentId: doc.id,
       ipAddress: req.ip || req.socket.remoteAddress,
@@ -176,7 +176,7 @@ export class DocumentController {
 
     await auditService.logSecurityEvent({
       action: 'DOCUMENT_DELETE',
-      status: AuditStatus.ALLOWED,
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       documentId: doc.id,
       ipAddress: req.ip || req.socket.remoteAddress,

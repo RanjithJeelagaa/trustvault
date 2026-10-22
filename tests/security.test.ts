@@ -23,7 +23,7 @@ jest.mock('../src/db/prisma', () => ({
       create: jest.fn(),
       delete: jest.fn(),
     },
-    documentPermission: {
+    permission: {
       upsert: jest.fn(),
     },
     auditLog: {
@@ -131,7 +131,7 @@ describe('TrustVault Security Architecture Directives', () => {
       const hash1 = computeAuditEntryHash({
         previousHash: GENESIS_HASH,
         action: 'DOCUMENT_UPLOAD',
-        status: AuditStatus.ALLOWED,
+        status: AuditStatus.SUCCESS,
         userId: 'user-1',
         documentId: 'doc-1',
         timestamp: timestamp1,
@@ -153,7 +153,7 @@ describe('TrustVault Security Architecture Directives', () => {
         {
           id: 'log-1',
           action: 'DOCUMENT_UPLOAD',
-          status: AuditStatus.ALLOWED,
+          status: AuditStatus.SUCCESS,
           userId: 'user-1',
           documentId: 'doc-1',
           timestamp: timestamp1,
@@ -184,7 +184,7 @@ describe('TrustVault Security Architecture Directives', () => {
         validChain[0],
         {
           ...validChain[1],
-          status: AuditStatus.ALLOWED, // Tampered attribute!
+          status: AuditStatus.SUCCESS, // Tampered attribute!
         },
       ];
 

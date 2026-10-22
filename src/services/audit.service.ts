@@ -1,8 +1,9 @@
 import { AuditStatus } from '@prisma/client';
 import { prisma } from '../db/prisma';
 import { computeAuditEntryHash } from '../utils/crypto';
+import { calculateAuditHash, GENESIS_HASH } from '../utils/auditLogger';
 
-export const GENESIS_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
+export { GENESIS_HASH };
 
 export interface LogSecurityEventParams {
   action: string;
@@ -25,10 +26,23 @@ export class AuditService {
     // Retrieve the most recent audit entry to link the hash chain
     const lastEntry = await prisma.auditLog.findFirst({
       orderBy: { timestamp: 'desc' },
-      select: { entryHash: true },
+      select: { currentHash: true, entryHash: true },
     });
 
-    const previousHash = lastEntry ? lastEntry.entryHash : GENESIS_HASH;
+    const previousHash = lastEntry
+      ? (lastEntry.currentHash && lastEntry.currentHash.length === 64
+          ? lastEntry.currentHash
+          : (lastEntry.entryHash && lastEntry.entryHash.length === 64 ? lastEntry.entryHash : GENESIS_HASH))
+      : GENESIS_HASH;
+
+    const currentHash = calculateAuditHash({
+      previousHash,
+      timestamp,
+      userId: params.userId,
+      action: params.action,
+      documentId: params.documentId,
+      status: params.status,
+    });
 
     const entryHash = computeAuditEntryHash({
       previousHash,
@@ -50,6 +64,7 @@ export class AuditService {
         userAgent: params.userAgent || null,
         reason: params.reason || null,
         previousHash,
+        currentHash,
         entryHash,
         timestamp,
       },
@@ -64,6 +79,7 @@ export class AuditService {
     isValid: boolean;
     totalVerified: number;
     corruptedEntryId?: string;
+    corruptedAtId?: string;
     details?: string;
   }> {
     const entries = await prisma.auditLog.findMany({
@@ -81,12 +97,22 @@ export class AuditService {
           isValid: false,
           totalVerified: i,
           corruptedEntryId: entry.id,
+          corruptedAtId: entry.id,
           details: `Broken hash chain link at entry #${i + 1} (id: ${entry.id}). Expected previousHash ${expectedPreviousHash}, got ${entry.previousHash}`,
         };
       }
 
       // Check entry contents against its cryptographic seal
-      const computedHash = computeAuditEntryHash({
+      const computedCurrent = calculateAuditHash({
+        previousHash: entry.previousHash,
+        timestamp: entry.timestamp,
+        userId: entry.userId,
+        action: entry.action,
+        documentId: entry.documentId,
+        status: entry.status,
+      });
+
+      const computedEntryHash = computeAuditEntryHash({
         previousHash: entry.previousHash,
         action: entry.action,
         status: entry.status,
@@ -96,16 +122,23 @@ export class AuditService {
         reason: entry.reason,
       });
 
-      if (computedHash !== entry.entryHash) {
+      const recordedCurrent = (entry as any).currentHash;
+      const recordedEntry = entry.entryHash;
+
+      const isCurrentValid = recordedCurrent ? computedCurrent === recordedCurrent : false;
+      const isEntryValid = recordedEntry ? computedEntryHash === recordedEntry : false;
+
+      if (!isCurrentValid && !isEntryValid) {
         return {
           isValid: false,
           totalVerified: i,
           corruptedEntryId: entry.id,
+          corruptedAtId: entry.id,
           details: `Hash mismatch at entry #${i + 1} (id: ${entry.id}). Content has been modified!`,
         };
       }
 
-      expectedPreviousHash = entry.entryHash;
+      expectedPreviousHash = recordedCurrent || recordedEntry || computedCurrent;
     }
 
     return {

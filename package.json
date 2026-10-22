@@ -12,6 +12,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "test": "jest --runInBand --detectOpenHandles"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "keywords": [
     "security",
     "vault",

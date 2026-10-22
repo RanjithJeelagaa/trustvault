@@ -19,6 +19,14 @@ export async function authenticate(
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    await auditService.logSecurityEvent({
+      action: 'ACCESS_DENIED',
+      status: AuditStatus.DENIED,
+      userId: null,
+      ipAddress: req.ip || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent'],
+      reason: 'Missing or malformed Authorization header',
+    });
     res.status(401).json({ error: 'Missing or malformed Authorization header' });
     return;
   }
@@ -29,6 +37,14 @@ export async function authenticate(
     const decoded = jwt.verify(token, ENV.JWT_SECRET) as TokenPayload;
 
     if (!decoded.jti) {
+      await auditService.logSecurityEvent({
+        action: 'ACCESS_DENIED',
+        status: AuditStatus.DENIED,
+        userId: decoded.id || null,
+        ipAddress: req.ip || req.socket.remoteAddress,
+        userAgent: req.headers['user-agent'],
+        reason: 'Malformed token: missing jti',
+      });
       res.status(401).json({ error: 'Malformed token: missing jti' });
       return;
     }
@@ -59,6 +75,14 @@ export async function authenticate(
 
     next();
   } catch (err: any) {
+    await auditService.logSecurityEvent({
+      action: 'ACCESS_DENIED',
+      status: AuditStatus.DENIED,
+      userId: null,
+      ipAddress: req.ip || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent'],
+      reason: `Invalid or expired token: ${err.message}`,
+    });
     res.status(401).json({ error: 'Invalid or expired token', details: err.message });
   }
 }

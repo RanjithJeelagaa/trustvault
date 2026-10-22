@@ -60,7 +60,7 @@ export class AuthController {
 
     await auditService.logSecurityEvent({
       action: 'AUTH_LOGIN_SUCCESS',
-      status: AuditStatus.ALLOWED,
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       ipAddress: req.ip || req.socket.remoteAddress,
       userAgent: req.headers['user-agent'],
@@ -94,7 +94,7 @@ export class AuthController {
 
     await auditService.logSecurityEvent({
       action: 'AUTH_LOGOUT',
-      status: AuditStatus.ALLOWED,
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       ipAddress: req.ip || req.socket.remoteAddress,
       userAgent: req.headers['user-agent'],
@@ -135,7 +135,7 @@ export class AuthController {
 
     await auditService.logSecurityEvent({
       action: 'ADMIN_REVOKE_USER_TOKENS',
-      status: AuditStatus.ALLOWED,
+      status: AuditStatus.SUCCESS,
       userId: req.user?.id,
       ipAddress: req.ip || req.socket.remoteAddress,
       userAgent: req.headers['user-agent'],

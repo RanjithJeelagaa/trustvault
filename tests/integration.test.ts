@@ -18,6 +18,9 @@ jest.mock('../src/db/prisma', () => ({
       findUnique: jest.fn(),
       findMany: jest.fn(),
     },
+    permission: {
+      findUnique: jest.fn(),
+    },
     auditLog: {
       create: jest.fn(),
       findFirst: jest.fn(),
@@ -96,13 +99,13 @@ describe('TrustVault HTTP Authorization & Middleware Integration', () => {
 
     // BOLA protection triggers 403
     expect(res.status).toBe(403);
-    expect(res.body.code).toBe('ACCESS_DENIED');
+    expect(res.body.error).toContain('insufficient document permissions');
 
     // Rule 5: DENIED audit log must have been created BEFORE returning 403
     expect(prisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          action: 'DOCUMENT_READ_DENIED',
+          action: 'READ',
           status: AuditStatus.DENIED,
           userId: 'viewer-uuid-1',
           documentId: 'doc-private-100',

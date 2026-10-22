@@ -49,7 +49,7 @@ async function requireOwnerOrAdmin(req: AuthenticatedRequest, res: Response, nex
 
   if (user.role !== Role.ADMIN && doc.ownerId !== user.id) {
     await auditService.logSecurityEvent({
-      action: 'DOCUMENT_MANAGEMENT_DENIED',
+      action: 'ACCESS_DENIED',
       status: AuditStatus.DENIED,
       userId: user.id,
       documentId: doc.id,
@@ -102,7 +102,7 @@ router.post(
         }
 
         await auditService.logSecurityEvent({
-          action: 'DOCUMENT_UPLOAD_REJECTED',
+          action: 'ACCESS_DENIED',
           status: AuditStatus.DENIED,
           userId: user.id,
           ipAddress: req.ip || req.socket.remoteAddress,
@@ -111,7 +111,7 @@ router.post(
         });
 
         res.status(400).json({
-          error: validation.error || 'Invalid file format: magic-byte inspection failed',
+          error: validation.error || 'Invalid file format: magic byte mismatch',
         });
         return;
       }
@@ -137,8 +137,8 @@ router.post(
 
       // 5. Emit SUCCESS audit event
       await auditService.logSecurityEvent({
-        action: 'DOCUMENT_UPLOAD_SUCCESS',
-        status: AuditStatus.ALLOWED,
+        action: 'UPLOAD',
+        status: AuditStatus.SUCCESS,
         userId: user.id,
         documentId: document.id,
         ipAddress: req.ip || req.socket.remoteAddress,
@@ -146,9 +146,11 @@ router.post(
         reason: `Uploaded '${title}' (${document.size} bytes) with verified MIME ${validation.mimeType}`,
       });
 
+      const sanitized = sanitizeDoc(document);
       res.status(201).json({
         message: 'Document uploaded and verified successfully',
-        document: sanitizeDoc(document),
+        ...sanitized,
+        document: sanitized,
       });
     } catch (err: any) {
       // Clean up file if anything failed
@@ -222,8 +224,8 @@ router.get(
     }
 
     await auditService.logSecurityEvent({
-      action: 'DOCUMENT_DOWNLOAD',
-      status: AuditStatus.ALLOWED,
+      action: 'DOWNLOAD',
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       documentId: doc.id,
       ipAddress: req.ip || req.socket.remoteAddress,
@@ -283,8 +285,8 @@ router.put(
     });
 
     await auditService.logSecurityEvent({
-      action: 'DOCUMENT_EDIT',
-      status: AuditStatus.ALLOWED,
+      action: 'EDIT',
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       documentId: doc.id,
       ipAddress: req.ip || req.socket.remoteAddress,
@@ -329,8 +331,8 @@ router.delete(
     });
 
     await auditService.logSecurityEvent({
-      action: 'DOCUMENT_DELETE',
-      status: AuditStatus.ALLOWED,
+      action: 'DELETE',
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       documentId: doc.id,
       ipAddress: req.ip || req.socket.remoteAddress,
@@ -357,22 +359,21 @@ router.post(
     const doc = req.document!;
     const user = req.user!;
 
-    const grantSchema = z.object({
-      email: z.string().email(),
-      accessLevel: z.enum(['READ', 'EDIT']),
-    });
+    const email = (req.body.userEmail || req.body.email || '').toString().trim().toLowerCase();
+    const rawLevel = (req.body.permission || req.body.accessLevel || 'READ').toString().trim().toUpperCase();
 
-    const parseResult = grantSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      res.status(400).json({ error: 'Invalid permission payload', details: parseResult.error.format() });
+    if (!email || (rawLevel !== 'READ' && rawLevel !== 'EDIT')) {
+      res.status(400).json({
+        error: 'Invalid permission payload: userEmail/email and permission/accessLevel (READ or EDIT) are required',
+      });
       return;
     }
 
-    const { email, accessLevel } = parseResult.data;
+    const accessLevel = rawLevel as AccessLevel;
 
     // Look up target user by email
     const targetUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email },
     });
 
     if (!targetUser) {
@@ -388,18 +389,18 @@ router.post(
         },
       },
       update: {
-        accessLevel: accessLevel as AccessLevel,
+        accessLevel,
       },
       create: {
         documentId: doc.id,
         userId: targetUser.id,
-        accessLevel: accessLevel as AccessLevel,
+        accessLevel,
       },
     });
 
     await auditService.logSecurityEvent({
-      action: 'DOCUMENT_PERMISSION_GRANTED',
-      status: AuditStatus.ALLOWED,
+      action: 'GRANT',
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       documentId: doc.id,
       ipAddress: req.ip || req.socket.remoteAddress,
@@ -408,7 +409,7 @@ router.post(
     });
 
     res.status(200).json({
-      message: `Granted ${accessLevel} permission on document to ${email}`,
+      message: 'Permission granted successfully',
       permission,
     });
   }
@@ -441,8 +442,8 @@ router.delete(
     }
 
     await auditService.logSecurityEvent({
-      action: 'DOCUMENT_PERMISSION_REVOKED',
-      status: AuditStatus.ALLOWED,
+      action: 'REVOKE',
+      status: AuditStatus.SUCCESS,
       userId: user.id,
       documentId: doc.id,
       ipAddress: req.ip || req.socket.remoteAddress,
