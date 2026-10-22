@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+storage/vault/*
+!storage/vault/.gitkeep
+storage/documents/*
+!storage/documents/.gitkeep
+coverage
+*.log

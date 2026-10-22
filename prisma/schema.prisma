@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OWNER
+  VIEWER
+}
+
+enum AccessLevel {
+  READ
+  EDIT
+}
+
+enum AuditStatus {
+  ALLOWED
+  DENIED
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  role          Role           @default(VIEWER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  documents     Document[]
+  permissions   Permission[]
+  auditLogs     AuditLog[]
+  revokedTokens RevokedToken[]
+
+  @@map("users")
+}
+
+model RevokedToken {
+  id        String   @id @default(uuid())
+  jti       String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason    String?
+  expiresAt DateTime
+  revokedAt DateTime @default(now())
+
+  @@index([jti])
+  @@map("revoked_tokens")
+}
+
+model Document {
+  id           String       @id @default(uuid())
+  title        String
+  category     String?
+  originalName String?
+  description  String?
+  storageKey   String       @unique // Randomly generated UUID filename; NEVER expose raw user filename or storage path
+  mimeType     String
+  size         Int
+  ownerId      String
+  owner        User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  permissions  Permission[]
+  auditLogs    AuditLog[]
+
+  @@index([ownerId])
+  @@index([title])
+  @@index([category])
+  @@map("documents")
+}
+
+model Permission {
+  id          String      @id @default(uuid())
+  documentId  String
+  document    Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessLevel AccessLevel @default(READ)
+  createdAt   DateTime    @default(now())
+
+  @@unique([documentId, userId])
+  @@map("permissions")
+}
+
+model AuditLog {
+  id           String      @id @default(uuid())
+  action       String
+  status       AuditStatus
+  userId       String?
+  user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  documentId   String?
+  document     Document?   @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  ipAddress    String?
+  userAgent    String?
+  reason       String?
+  previousHash String      // Tamper-evident cryptographic blockchain-style chaining
+  entryHash    String      // SHA-256 seal of current entry + previousHash
+  timestamp    DateTime    @default(now())
+
+  @@index([timestamp])
+  @@index([userId])
+  @@index([documentId])
+  @@map("audit_logs")
+}

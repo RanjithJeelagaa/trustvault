@@ -1,0 +1,56 @@
+import express, { Application, Request, Response } from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+
+import authRoutes from './routes/auth.routes';
+import documentRoutes from './routes/document.routes';
+import auditRoutes from './routes/audit.routes';
+import { errorHandler } from './middleware/errorHandler';
+
+export function createApp(): Application {
+  const app = express();
+
+  // Harden HTTP response headers
+  app.use(helmet());
+
+  // Configure CORS
+  app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }));
+
+  // Parse JSON payloads
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+  // NOTE: Architecture Rule 2 explicitly prohibits public static file mounts:
+  // "Never expose direct file system paths or public URLs for document assets."
+  // All assets must be streamed programmatically behind server authorization middleware.
+
+  // Health and Readiness Check
+  app.get('/health', (req: Request, res: Response) => {
+    res.status(200).json({
+      status: 'OK',
+      service: 'TrustVault API',
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Mount API Endpoints (Mount at /api/documents as well as /api/v1/documents)
+  app.use('/api/auth', authRoutes);
+  app.use('/api/v1/auth', authRoutes);
+
+  app.use('/api/documents', documentRoutes);
+  app.use('/api/v1/documents', documentRoutes);
+
+  app.use('/api/audit', auditRoutes);
+  app.use('/api/v1/audit', auditRoutes);
+
+  // Global Error Handler
+  app.use(errorHandler);
+
+  return app;
+}
+
+export const app = createApp();
