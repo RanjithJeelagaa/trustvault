@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 
 import authRoutes from './routes/auth.routes';
+import userRoutes from './routes/user.routes';
 import documentRoutes from './routes/document.routes';
 import auditRoutes from './routes/audit.routes';
 import adminRoutes from './routes/admin.routes';
@@ -17,7 +18,7 @@ export function createApp(): Application {
   // Configure CORS
   app.use(cors({
     origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   }));
 
@@ -41,6 +42,9 @@ export function createApp(): Application {
   // Mount API Endpoints (Mount at /api/documents as well as /api/v1/documents)
   app.use('/api/auth', authRoutes);
   app.use('/api/v1/auth', authRoutes);
+
+  app.use('/api/users', userRoutes);
+  app.use('/api/v1/users', userRoutes);
 
   app.use('/api/documents', documentRoutes);
   app.use('/api/v1/documents', documentRoutes);

@@ -1,5 +1,22 @@
+import path from 'path';
+import fs from 'fs';
+import express, { Request, Response } from 'express';
 import { app } from './app';
 import { ENV } from './config/env';
+
+// Configure Express to serve the static frontend bundle from client/dist in production
+const clientDist = path.resolve(__dirname, '../client/dist');
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+
+  // Client-side SPA routing fallback for non-API requests
+  app.get('*', (req: Request, res: Response, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 let server: any = null;
 
@@ -11,6 +28,9 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`  Environment: ${ENV.NODE_ENV}                       `);
     console.log(`  Port:        ${ENV.PORT}                           `);
     console.log(`  Storage:     ${ENV.STORAGE_DIR}                    `);
+    if (fs.existsSync(clientDist)) {
+      console.log(`  Frontend:    Mounted from ${clientDist}           `);
+    }
     console.log(`====================================================`);
   });
 

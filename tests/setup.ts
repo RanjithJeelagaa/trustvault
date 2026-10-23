@@ -30,9 +30,11 @@ beforeAll(async () => {
     await prisma.user.createMany({
       data: [
         { email: 'admin@trustvault.local', passwordHash, role: Role.ADMIN },
+        { email: 'owner@trustvault.local', passwordHash, role: Role.OWNER },
         { email: 'owner_a@trustvault.local', passwordHash, role: Role.OWNER },
         { email: 'owner_b@trustvault.local', passwordHash, role: Role.OWNER },
         { email: 'viewer@trustvault.local', passwordHash, role: Role.VIEWER },
+        { email: '23@gmail.com', passwordHash, role: Role.VIEWER },
       ],
     });
   });

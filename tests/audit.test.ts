@@ -7,6 +7,7 @@ import {
   verifyAuditChain,
   GENESIS_HASH,
 } from '../src/utils/auditLogger';
+import { REALISTIC_RECEIPT_PNG } from '../src/utils/sampleImages';
 import './setup';
 
 const prisma = new PrismaClient();
@@ -22,10 +23,7 @@ describe('Phase 3: Cryptographic Hash-Chained Audit Trail & Admin Activity Viewe
 
   let testDocId: string;
 
-  const validPngBuffer = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-    'base64'
-  );
+  const validPngBuffer = REALISTIC_RECEIPT_PNG;
 
   beforeAll(async () => {
     const login = async (email: string) => {

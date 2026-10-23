@@ -7,6 +7,10 @@ import { requireRoles } from '../middleware/authorize.middleware';
 const router = Router();
 
 // Public Authentication
+router.post('/register', (req, res, next) => {
+  authController.register(req, res).catch(next);
+});
+
 router.post('/login', (req, res, next) => {
   authController.login(req, res).catch(next);
 });
@@ -23,6 +27,11 @@ router.get('/me', authenticate, (req, res, next) => {
 // Admin Administrative Token Revocation
 router.post('/users/:userId/revoke', authenticate, requireRoles(Role.ADMIN), (req, res, next) => {
   authController.revokeUserTokens(req, res).catch(next);
+});
+
+// Persona Switcher (ADMIN / OWNER only)
+router.post('/switch-persona', authenticate, (req, res, next) => {
+  authController.switchPersona(req, res).catch(next);
 });
 
 export default router;

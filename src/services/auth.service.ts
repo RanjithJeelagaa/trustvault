@@ -34,6 +34,14 @@ export class AuthService {
   }
 
   /**
+   * Hashes a plain text password using bcrypt with salt rounds >= 10.
+   */
+  public async hashPassword(plain: string): Promise<string> {
+    const saltRounds = 12;
+    return await bcrypt.hash(plain, saltRounds);
+  }
+
+  /**
    * Validates raw password against bcrypt hash.
    */
   public async verifyPassword(plain: string, hash: string): Promise<boolean> {

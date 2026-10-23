@@ -12,6 +12,7 @@ This document outlines the threat modeling, attack surfaces, and explicit defens
 | **Broken Object Level Authorization (BOLA)** | OWASP API Security Top 10: API1:2023 | Critical | Authorization Middleware (RBAC + ABAC) | Server-side authorization middleware runs prior to controller; emits `DENIED` audit log before 403. |
 | **Stale JWTs & Revocation Bypass** | CWE-613 / CWE-384 | High | Database-backed Token Revocation | Synchronous database revocation check on `jti` for *every* authenticated request. |
 | **Audit Log Tampering & Repudiation** | CWE-778 / CWE-353 | High | Cryptographic Hash Chaining & Append-Only DB | Blockchain-style SHA-256 hash chaining on all log entries; strictly append-only. |
+| **Credential Storage & Authentication Bypass** | CWE-256 / CWE-307 | Critical | Strong Bcrypt Hashing & Dynamic Auth Validation | Bcrypt with salt rounds >= 12, strict email normalization, input validation, and 409 conflict handling. |
 
 ---
 
@@ -150,6 +151,7 @@ An adversary or malicious insider gains database access and modifies, deletes, o
 | **Audit Hash Chain Integrity** | Run hash verification routine across audit records; assert tamper detection. | Implemented |
 | **Magic-Byte MIME Validation** | Upload spoofed extension / executable buffer; assert HTTP 400 Bad Request. | Implemented |
 | **UUID Storage Isolation** | Verify uploaded assets on disk use strictly UUID filenames in `storage/documents`. | Implemented |
+| **Frontend & Static Asset Isolation** | Ensure `client/dist` only contains UI bundles; verify `storage/documents` is never mounted or exposed statically. | Implemented |
 
 ---
 
@@ -191,4 +193,63 @@ Attackers frequently exploit file upload workflows through:
   - `OWNER`: Full control over owned documents.
   - `EXPLICIT PERMISSION`: Evaluated against the `Permission` table (`EDIT` implies `READ`).
 - Any unauthorized access attempt logs a `DENIED` audit event before returning HTTP 403 Forbidden.
+
+---
+
+## 8. Document Sharing, Batch Access & Horizontal Privilege Escalation Mitigations
+
+### Threat Vectors & Attack Surfaces
+Collaborative document platforms are susceptible to critical authorization failures during sharing and access management:
+1. **Unauthorized Permission Grants (BOLA / Privilege Escalation):**
+   - An authenticated viewer or malicious non-owner attempts to grant themselves or an accomplice access to another user's confidential document (`POST /api/documents/:id/access`).
+2. **Access Revocation Bypass & Zombie Permissions:**
+   - When access is revoked, stale cache entries or unsynchronized database states might allow a demoted user to continue reading or downloading documents.
+3. **Multi-User Batch Injection:**
+   - Supplying arbitrary arrays of user IDs or emails in batch sharing payloads to probe for existence of non-public accounts or assign permissions across tenant boundaries.
+
+### TrustVault Sharing & Access Defenses
+
+#### 1. Strict Owner / Admin RBAC Guard on Permission Mutations
+- All endpoints that read or alter document access rights (`GET /api/documents/:id/access`, `POST /api/documents/:id/access`, `DELETE /api/documents/:id/access/:userId`) are guarded by `requireOwnerOrAdmin` middleware.
+- Only the documented creator (`document.ownerId === req.user.id`) or a system `ADMIN` can view the access list, grant new permissions, or revoke existing grants.
+- Unauthorized attempts return HTTP 403 Forbidden and immediately log a `DENIED` audit event.
+
+#### 2. Synchronous Database Validation on Every Document Request
+- TrustVault does not rely on cached or client-held access tokens for document authorizations.
+- On every `GET /api/documents/:id/download`, `GET /api/documents/:id/view`, or `PUT /api/documents/:id`, `authorizeDocument` executes a synchronous database query against the `permissions` table.
+- If a user's permission record has been deleted via the Revoke action, their next request fails immediately with HTTP 403 Forbidden and emits a `DENIED` audit log.
+
+#### 3. Cryptographic Audit Trail for Access Lifecycle
+- Every permission grant emits an `action: 'GRANT'` audit record with the granter ID, target user email, document ID, and permission level.
+- Every permission revocation emits an `action: 'REVOKE'` audit record.
+- Both operations are bound to the append-only SHA-256 hash chain, ensuring complete forensic accountability for document sharing actions.
+
+---
+
+## 9. Impersonation, Persona Switching & Privilege Escalation Mitigations
+
+### Threat Vectors & Attack Surfaces
+In applications supporting persona switching or user impersonation (e.g. for testing, support, or tenant demonstration):
+1. **Vertical Privilege Escalation via Impersonation (CWE-287 / CWE-863):**
+   - An unprivileged user (e.g., `VIEWER`) discovers the persona switcher endpoint or craft HTTP calls to `POST /api/auth/switch-persona` requesting an `ADMIN` or `OWNER` token.
+2. **Horizontal Tenant Impersonation:**
+   - A regular tenant user attempts to impersonate another tenant's account without authorization.
+3. **Audit Repudiation during Switched Sessions:**
+   - Actions taken under a switched persona could obscure who initiated the impersonation.
+
+### TrustVault Defensive Architecture
+
+#### 1. Dual-Layer RBAC Guard (Client UI + Server Authorization)
+- **Client-Side Concealment:** The "Quick Persona" dropdown is strictly rendered only when `user.role === 'ADMIN' || user.role === 'OWNER'`. For all `VIEWER` accounts (e.g., `23@gmail.com`), the control is absent from the DOM.
+- **Authoritative Server Enforcement:** Regardless of client UI tampering, `POST /api/auth/switch-persona` verifies `req.user.role === 'ADMIN' || req.user.role === 'OWNER'`. Any call from a `VIEWER` is rejected with HTTP 403 Forbidden and emits a `DENIED` audit log.
+
+#### 2. Complete Cryptographic Trail for Persona Switches
+- Every invocation of `POST /api/auth/switch-persona` writes a permanent, chained audit record (`action: 'SWITCH_PERSONA'`) capturing:
+  - The caller's original authenticated user ID.
+  - The target persona email and role.
+  - Client IP and User-Agent.
+  - Cryptographic hash chaining seal (`previousHash` -> `currentHash`).
+- This guarantees forensic traceability, ensuring that any actions taken under the target user's context can be correlated back to the originating admin or owner.
+
+
 
