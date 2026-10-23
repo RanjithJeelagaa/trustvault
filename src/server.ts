@@ -4,19 +4,7 @@ import express, { Request, Response } from 'express';
 import { app } from './app';
 import { ENV } from './config/env';
 
-// Configure Express to serve the static frontend bundle from client/dist in production
-const clientDist = path.resolve(__dirname, '../client/dist');
-if (fs.existsSync(clientDist)) {
-  app.use(express.static(clientDist));
-
-  // Client-side SPA routing fallback for non-API requests
-  app.get('*', (req: Request, res: Response, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
-      return next();
-    }
-    res.sendFile(path.join(clientDist, 'index.html'));
-  });
-}
+const clientDist = path.resolve(process.cwd(), 'client/dist');
 
 let server: any = null;
 

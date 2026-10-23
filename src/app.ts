@@ -1,3 +1,5 @@
+import path from 'path';
+import fs from 'fs';
 import express, { Application, Request, Response } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -12,8 +14,10 @@ import { errorHandler } from './middleware/errorHandler';
 export function createApp(): Application {
   const app = express();
 
-  // Harden HTTP response headers
-  app.use(helmet());
+  // Harden HTTP response headers (allow SPA assets)
+  app.use(helmet({
+    contentSecurityPolicy: false,
+  }));
 
   // Configure CORS
   app.use(cors({
@@ -54,6 +58,22 @@ export function createApp(): Application {
 
   app.use('/api/admin', adminRoutes);
   app.use('/api/v1/admin', adminRoutes);
+
+  // Static frontend bundle serving & SPA wildcard catch-all route
+  const clientDistPath = path.resolve(process.cwd(), 'client/dist');
+  app.use(express.static(clientDistPath));
+
+  app.get('*', (req: Request, res: Response, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
+      return next();
+    }
+    const indexPath = path.join(clientDistPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      next();
+    }
+  });
 
   // Global Error Handler
   app.use(errorHandler);
