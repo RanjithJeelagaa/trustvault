@@ -2,6 +2,13 @@
 
 TrustVault is an enterprise-grade secure document vault and authorization engine built with **Node.js, Express, TypeScript, PostgreSQL, and Prisma ORM**.
 
+## Live Production Deployment & Demo Credentials
+
+- **Live URL:** https://trustvault-w92h.onrender.com
+- **Admin Persona:** `admin@trustvault.local` | `Password123!`
+- **Document Owner Persona:** `owner@trustvault.local` | `Password123!`
+- **Viewer Persona:** `viewer@trustvault.local` | `Password123!`
+
 ## Core Architectural Directives
 
 1. **Node.js + Express + TypeScript with Prisma ORM & PostgreSQL:** Strongly-typed enterprise architecture.
