@@ -10,6 +10,7 @@ import documentRoutes from './routes/document.routes';
 import auditRoutes from './routes/audit.routes';
 import adminRoutes from './routes/admin.routes';
 import { errorHandler } from './middleware/errorHandler';
+import { prisma } from './db/prisma';
 
 export function createApp(): Application {
   const app = express();
@@ -34,14 +35,28 @@ export function createApp(): Application {
   // "Never expose direct file system paths or public URLs for document assets."
   // All assets must be streamed programmatically behind server authorization middleware.
 
-  // Health and Readiness Check
-  app.get('/health', (req: Request, res: Response) => {
-    res.status(200).json({
-      status: 'OK',
-      service: 'TrustVault API',
-      timestamp: new Date().toISOString(),
-    });
-  });
+  // Public Health and Database Readiness Check (prevents cold starts and verifies DB connectivity)
+  const healthHandler = async (_req: Request, res: Response) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: 'connected',
+      });
+    } catch (error) {
+      res.status(503).json({
+        status: 'unhealthy',
+        timestamp: new Date().toISOString(),
+        database: 'disconnected',
+        error: error instanceof Error ? error.message : 'Database ping failed',
+      });
+    }
+  };
+
+  app.get('/api/health', healthHandler);
+  app.get('/health', healthHandler);
 
   // Mount API Endpoints (Mount at /api/documents as well as /api/v1/documents)
   app.use('/api/auth', authRoutes);
